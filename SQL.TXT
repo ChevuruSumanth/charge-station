@@ -1,0 +1,279 @@
+CREATE TABLE charging_stations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    station_name VARCHAR(255) NOT NULL,
+    location_city VARCHAR(255) NOT NULL,
+    location_state VARCHAR(255) NOT NULL,
+    latitude DECIMAL(10, 8) NOT NULL,
+    longitude DECIMAL(11, 8) NOT NULL,
+    station_type ENUM('Fast', 'Slow') NOT NULL,
+    slots_available INT NOT NULL,
+    status ENUM('Available', 'Under Maintenance', 'Occupied') NOT NULL,
+    is_enabled TINYINT(1) NOT NULL DEFAULT 1
+);
+
+
+ALTER TABLE charging_stations
+ADD COLUMN mobile_number VARCHAR(10) NOT NULL;
+
+ALTER TABLE charging_stations
+ADD COLUMN price DECIMAL(10, 2) NOT NULL DEFAULT 0.00;
+ 
+ 
+CREATE TABLE station_slots (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    station_id INT NOT NULL,
+    slot_type ENUM('fast', 'slow') NOT NULL,
+    available_slots INT NOT NULL,
+    start_time DATETIME NOT NULL,
+    end_time DATETIME NOT NULL,
+    peak_price DECIMAL(10,2) NOT NULL,
+    off_peak_price DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (station_id) REFERENCES charging_stations(id)
+);
+
+CREATE TABLE pricing_rules (
+    rule_id INT AUTO_INCREMENT PRIMARY KEY,
+    peak_hours JSON NOT NULL, -- For example, {"start": "08:00", "end": "18:00"}
+    surge_multiplier DECIMAL(5, 2) DEFAULT 1.00, -- Surge multiplier based on demand
+    weekend_price_multiplier DECIMAL(5, 2) DEFAULT 1.00, -- Higher price on weekends
+    base_price DECIMAL(10, 2) NOT NULL -- Base price
+);
+
+
+CREATE TABLE station_health (
+    health_id INT AUTO_INCREMENT PRIMARY KEY,
+    station_id INT NOT NULL,
+    current_status ENUM('Available', 'Occupied', 'Maintenance') NOT NULL,
+    health_status VARCHAR(255), -- Health status and issues description
+    alert_type ENUM('Maintenance', 'Breakdown', 'None') DEFAULT 'None',
+    alert_message VARCHAR(255), -- Description of the alert
+    FOREIGN KEY (station_id) REFERENCES charging_stations(id) ON DELETE CASCADE
+);
+
+
+CREATE TABLE station_usage (
+    usage_id INT AUTO_INCREMENT PRIMARY KEY,
+    station_id INT NOT NULL,
+    start_time DATETIME NOT NULL,
+    end_time DATETIME NOT NULL,
+    duration_in_minutes INT NOT NULL, -- Calculated as TIMESTAMPDIFF(MINUTE, start_time, end_time)
+    FOREIGN KEY (station_id) REFERENCES charging_stations(id) ON DELETE CASCADE
+);
+
+
+CREATE TABLE revenue (
+    revenue_id INT AUTO_INCREMENT PRIMARY KEY,
+    station_id INT NOT NULL,
+    revenue_amount DECIMAL(10, 2) NOT NULL,
+    usage_id INT NOT NULL, -- Links to station_usage
+    revenue_date DATE NOT NULL,
+    FOREIGN KEY (station_id) REFERENCES charging_stations(id) ON DELETE CASCADE,
+    FOREIGN KEY (usage_id) REFERENCES station_usage(usage_id) ON DELETE CASCADE
+);
+
+
+CREATE TABLE user_activity (
+    activity_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    station_id INT NOT NULL,
+    activity_type ENUM('StartCharging', 'StopCharging') NOT NULL,
+    activity_time DATETIME NOT NULL,
+    FOREIGN KEY (station_id) REFERENCES charging_stations(id) ON DELETE CASCADE
+);
+
+
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    mobile VARCHAR(15) NOT NULL,
+    password VARCHAR(255) NOT NULL
+);
+
+ALTER TABLE users
+ADD COLUMN phonepe VARCHAR(10) NOT NULL;
+
+
+CREATE TABLE user_locations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    latitude DECIMAL(10, 8) NOT NULL,
+    longitude DECIMAL(11, 8) NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+
+CREATE TABLE feedback (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    station_name VARCHAR(255) NOT NULL,
+    feedback TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+CREATE TABLE vehicles (
+    vehicle_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    vehicle_name VARCHAR(255) NOT NULL,
+    vehicle_number VARCHAR(50) NOT NULL,
+    vehicle_type ENUM('Electric', 'Hybrid', 'Petrol', 'Diesel') NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+
+CREATE TABLE bookings (
+    booking_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    station_id INT,
+    vehicle_id INT,
+    slot_type ENUM('Fast', 'Slow'),
+    booking_datetime DATETIME,
+    mobile_number VARCHAR(15),
+    booking_status ENUM('Confirmed', 'Cancelled') DEFAULT 'Confirmed',
+    payment_status ENUM('Paid', 'Pending', 'Failed') DEFAULT 'Pending',
+    charging_status ENUM('Complete', 'Ongoing','Not Started') DEFAULT 'Not Started',
+    amount DECIMAL(10, 2),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (station_id) REFERENCES charging_stations(id),
+    FOREIGN KEY (vehicle_id) REFERENCES vehicles(vehicle_id)
+);
+
+
+CREATE TABLE favorite_stations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    station_id INT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (station_id) REFERENCES charging_stations(id) ON DELETE CASCADE
+);
+
+
+CREATE TABLE payments (
+    payment_id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT,
+    user_id INT,
+    amount DECIMAL(10, 2),
+    payment_status ENUM('Pending', 'Paid') DEFAULT 'Pending',
+    payment_time DATETIME,
+    FOREIGN KEY (booking_id) REFERENCES bookings(booking_id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+
+CREATE TABLE payments (
+    payment_id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT NOT NULL,
+    user_id INT NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    payment_status ENUM('Pending', 'Paid') DEFAULT 'Pending',
+    payment_time DATETIME,
+    qr_code_link VARCHAR(255),
+    FOREIGN KEY (booking_id) REFERENCES bookings(booking_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+
+CREATE TABLE payments (
+    payment_id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT,
+    user_id INT,
+    payment_status ENUM('Pending', 'Completed', 'Failed'),
+    payment_method VARCHAR(50),
+    amount DECIMAL(10, 2),
+    transaction_id VARCHAR(255),
+    payment_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (booking_id) REFERENCES bookings(booking_id)
+);
+
+ALTER TABLE bookings ADD total_amount DECIMAL(10, 2) NOT NULL AFTER user_id;
+ALTER TABLE bookings ADD COLUMN cancellation_datetime DATETIME NULL;
+
+
+
+ALTER TABLE payments 
+ADD COLUMN receipt_path VARCHAR(255);
+
+
+ALTER TABLE station_slots
+DROP FOREIGN KEY station_slots_ibfk_1;
+
+ALTER TABLE station_slots
+ADD CONSTRAINT station_slots_ibfk_1
+FOREIGN KEY (station_id) REFERENCES charging_stations(id)
+ON DELETE CASCADE;
+
+
+
+DELIMITER $$
+
+CREATE PROCEDURE UpdatePricesBasedOnTime()
+BEGIN
+    DECLARE current_hour INT;
+    
+    -- Get the current hour
+    SET current_hour = HOUR(CURRENT_TIME);
+    
+    -- Update price for off-peak hours (10 PM - 6 AM)
+    IF (current_time BETWEEN '08:00:00' AND '11:00:00') OR (current_time BETWEEN '18:00:00' AND '21:00:00') THEN
+        UPDATE charging_stations
+        SET price = price*1.2;
+    ELSE
+        -- Update price for peak hours (6 AM - 10 PM)
+        UPDATE charging_stations
+        SET price = price;
+    END IF;
+END $$
+
+DELIMITER ;
+
+
+SET GLOBAL event_scheduler = ON;
+
+CREATE EVENT UpdateChargingStationPrices
+ON SCHEDULE EVERY 1 HOUR
+DO
+CALL UpdatePricesBasedOnTime();
+
+
+CREATE TABLE `checkin_history` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `user_id` INT NOT NULL,
+    `checkin_date` DATE NOT NULL
+);
+
+
+
+CREATE TABLE daily_checkin (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    last_checkin_date DATE,
+    consecutive_days INT DEFAULT 1,
+    total_points INT DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+
+
+CREATE TABLE coupon (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    name VARCHAR(100),
+    mobile_number VARCHAR(15),
+    phonepe_number VARCHAR(15),
+    reward_amount DECIMAL(10,2) DEFAULT 100.00,
+    issued_date DATE,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+
+CREATE TABLE notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    message TEXT NOT NULL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    is_admin BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
