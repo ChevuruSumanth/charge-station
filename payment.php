@@ -35,6 +35,17 @@ if ($booking_result->num_rows === 0) {
 }
 
 $booking = $booking_result->fetch_assoc();
+$amount = $booking['amount']; // Fetch amount from bookings table
+
+// Define the payment details
+$payee_vpa = "9494721131@ybl"; // Replace with your UPI ID
+$payee_name = "Chevuru Sumanth"; // Replace with your name/business name
+$transaction_note = "Payment for Booking"; // Transaction note
+$transaction_id = uniqid(); // Generate a unique transaction ID
+$currency = "INR";
+
+// Create the UPI URL
+$upi_link = "upi://pay?pa=$payee_vpa&pn=" . urlencode($payee_name) . "&am=" . ($amount / 100) . "&cu=$currency&tn=" . urlencode($transaction_note);
 
 // Handle payment confirmation form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -88,6 +99,7 @@ if ($stmt->execute()) {
     //sendAdminNotification($transaction_id, $amount);
 
     echo "<p style='color:green;'>Payment completed successfully! Transaction ID: $transaction_id</p>";
+    
 } else {
     echo "<p style='color:red;'>Error: " . $stmt->error . "</p>";
 }
@@ -188,6 +200,8 @@ form button[type="submit"]:hover {
         width: 150px;
         height: 150px;
     }
+    
+
 
     form {
         padding: 15px;
@@ -199,6 +213,38 @@ form button[type="submit"]:hover {
         font-size: 14px;
     }
 }
+#upi-pay-button {
+    display: inline-block;
+    background-color: #673ab7;
+    color: white;
+    padding: 12px 24px;
+    text-decoration: none;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+    cursor: pointer;
+    border: none;
+}
+
+#upi-pay-button:hover {
+    background-color: #512da8;
+}
+.center-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width : auto; /* Full screen height */
+}
+.qr-container {
+    text-align: center; /* Centers the QR code and button */
+}
+
+.pay-button {
+    display: block; /* Makes the button appear below the QR code */
+    margin: 10px auto; /* Centers the button horizontally */
+}
+
 </style>
 </head>
 <body>
@@ -207,7 +253,12 @@ form button[type="submit"]:hover {
 <p>Your booking was successful. Please complete your payment by scanning the QR code below:</p>
 
 <!-- Display QR Code for Payment -->
+<div class="qr-container">
 <img src="./sumanth-phonepe-qr-code.jpeg" alt="QR Code for Payment" style="width:200px;height:200px;"><br>
+<p>Alternatively, you can pay using PhonePe:</p>
+<button class="center-container"id="upi-pay-button">Pay with PhonePe</button>
+
+</div>
 
 <p>Once you have made the payment, please fill in the details below to confirm:</p>
 
@@ -225,6 +276,12 @@ form button[type="submit"]:hover {
 </form>
 
 </form>
+<script>
+document.getElementById("upi-pay-button").addEventListener("click", function() {
+    var upiUrl = "<?php echo $upi_link; ?>";
+    window.open(upiUrl, "_self");
+});
+</script>
 
 </body>
 </html>
